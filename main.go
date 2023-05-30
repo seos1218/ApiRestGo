@@ -1,23 +1,36 @@
 package main
 
 import (
-	"fmt"
-	"net/http"
+	"context"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/seos1218/ApiRestGo/server"
 )
 
 func main() {
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Que dice la banda %s", "Bien o kellogs?")
+	ctx := context.Background()
 
-	})
+	serverDoneChan := make(chan os.Signal, 1)
 
-	srv := http.Server{
-		Addr: ":8080",
-	}
-	err := srv.ListenAndServe()
+	signal.Notify(serverDoneChan, os.Interrupt, syscall.SIGTERM)
 
-	if err != nil {
-		panic(err)
-	}
+	srv := server.New(":8080")
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	log.Println("server started")
+
+	<-serverDoneChan
+
+	srv.Shutdown(ctx)
+	log.Println("server stoped")
 }
